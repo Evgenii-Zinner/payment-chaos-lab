@@ -1,0 +1,31 @@
+server:
+  http_listen_port: 9080
+positions:
+  filename: /tmp/positions.yaml
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+scrape_configs:
+  - job_name: aggregator
+    static_configs:
+      - targets: [localhost]
+        labels:
+          service: aggregator
+          __path__: /var/log/lab/aggregator/*.log
+  - job_name: nginx
+    static_configs:
+      - targets: [localhost]
+        labels:
+          service: nginx
+          __path__: /var/log/lab/nginx/*.log
+  - job_name: telco
+    static_configs:
+      - targets: [localhost]
+        labels:
+          service: telco
+          __path__: /var/log/lab/telco/*.log
+  - job_name: merchant
+    static_configs:
+      - targets: [localhost]
+        labels:
+          service: merchant
+          __path__: /var/log/lab/merchant/*.log
