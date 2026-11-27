@@ -48,6 +48,6 @@ echo "Merchant log tail:"
 tail -n 3 logs/merchant/merchant.log 2>/dev/null || true
 echo
 echo "Next:"
-echo "  make sql                 # query the transaction"
-echo "  open http://localhost:3000  # Grafana -> Payment Lab Overview"
-echo "  open http://localhost:8081  # Adminer -> SQL workbench"
+echo "  make sql                    # query the transaction"
+echo "  open http://localhost:3000  # Grafana -> Payment Lab Overview (admin / admin)"
+echo "  open http://localhost:8081  # Adminer -> SQL workbench (server: db, user: root, pass: rootpass, db: payments_lab)"

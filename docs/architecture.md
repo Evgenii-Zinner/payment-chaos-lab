@@ -140,9 +140,12 @@ failure, so you can practise finding duplicates that already exist.
 
 - It gives you a realistic reverse-proxy hop and a separate access log.
 - Its `proxy_read_timeout 4s` turns a slow telco into a visible 504.
-- It is the single public entry point (`:8080`) for the aggregator, which makes
-  the merchant → platform boundary clear.
-- The aggregator is still reachable directly on `:8000` for debugging.
+- It is the main host entry point (`:8080`) for the aggregator, which makes the
+  merchant → platform boundary clear.
+- The aggregator is also published directly on host `:8000` for debugging. That
+  path bypasses nginx, so it has no proxy timeout and no nginx access log. Use
+  `:8080` when you want the realistic path; use `:8000` when you want to isolate
+  the app from the proxy.
 
 ## Failure domains
 

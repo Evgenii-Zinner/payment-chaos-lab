@@ -73,8 +73,8 @@ receives webhooks. Most bugs in the lab come from those three views disagreeing.
 |---|---|---|
 | Merchant simulator | http://localhost:8001 | Sends payments; receives webhooks; has chaos buttons |
 | Telco mock | http://localhost:8003 | Accepts STK push; settles; sends callbacks; has chaos buttons |
-| Aggregator through nginx | http://localhost:8080 | Public payment API; `/docs` is the OpenAPI page |
-| Aggregator direct | http://localhost:8000 | Internal only; useful for debugging |
+| Aggregator through nginx | http://localhost:8080 | Host `8080` → nginx `80` → aggregator `8000`; the realistic API entry point, with nginx access logs and timeouts |
+| Aggregator direct | http://localhost:8000 | Host `8000` → aggregator `8000`; bypasses nginx, useful for debugging the app itself |
 | Grafana | http://localhost:3000 | Logs + SQL dashboards (admin / admin) |
 | Adminer | http://localhost:8081 | Browser SQL workbench |
 | MariaDB | localhost:3306 | Database `payments_lab`, user `root`, password `rootpass` |
@@ -356,6 +356,40 @@ make down                # stop, keep the database volume
 make reset               # wipe database + logs, rebuild
 ```
 
+### Under the hood (manual commands)
+
+`make` is just a thin shortcut layer over `docker compose` and `scripts/*.sh`. If
+you prefer to run the underlying commands directly (or inspect them in
+[Makefile](Makefile), [scripts/chaos.sh](scripts/chaos.sh), and
+[scripts/sql.sh](scripts/sql.sh)):
+
+```bash
+# Stack lifecycle
+docker compose up -d --build
+docker compose ps
+docker compose down
+
+# SQL shell and one-off query
+docker compose exec db mariadb -uroot -prootpass payments_lab
+docker compose exec -T db mariadb -uroot -prootpass payments_lab -e "SELECT status, COUNT(*) FROM transactions GROUP BY status"
+
+# Send a payment (same as: make pay ORDER=ord_manual_1)
+curl -sS -X POST http://localhost:8080/api/v1/payments/collect \
+  -H "Authorization: Bearer tok_zoyk_live_42" \
+  -H "Content-Type: application/json" \
+  -d '{"order_id":"ord_manual_1","amount":250,"currency":"ZMW","channel":"MTN_ZM","phone":"260971112233"}'
+
+# Retry a merchant webhook (same as: make retry TRX=trx_seed_003)
+curl -fsS -X POST http://localhost:8080/api/v1/webhooks/retry/trx_seed_003
+
+# Chaos switches & traffic (same as: make telco / merchant / auto / fire / settlements)
+curl -fsS -X POST http://localhost:8003/chaos/timeout
+curl -fsS -X POST http://localhost:8001/chaos/500_crash
+curl -fsS -X POST http://localhost:8001/auto/on
+curl -fsS -X POST "http://localhost:8001/fire/3?duplicate=true"
+curl -fsS http://localhost:8003/settlements/csv -o telco_settlements_eat.csv
+```
+
 ---
 
 ## SQL workbench
@@ -527,12 +561,11 @@ changing the core payment flow.
 | **Loki** | Already included. Log storage behind Grafana. | http://localhost:3100 |
 | **Adminer** | Already included. Zero-install SQL workbench. | http://localhost:8081 |
 | **DBeaver / TablePlus / DataGrip / HeidiSQL / SQL Workbench/J** | Desktop SQL clients with better autocomplete and export. | Connect to `127.0.0.1:3306` |
-| **Bark** | iOS push-notification app with a simple HTTP API. Useful if you want alerts or webhook events on your phone. Not required. | Point a test webhook or Grafana alert at your Bark URL |
 | **Prometheus** | Add metrics (request rate, latency, error rate) and Grafana metric panels. | Add `prometheus` + instrument the FastAPI services |
 | **Tempo or Jaeger** | Add distributed tracing so a payment has one trace across merchant → nginx → aggregator → telco. | Instrument with OpenTelemetry |
 | **Alertmanager** | Practise alert routing and silences. | Pair with Prometheus |
 | **k6** | Generate realistic load and measure the effect of chaos. | Script the `/api/v1/payments/collect` endpoint |
-| **Postman or Insomnia** | Save and replay API requests, including bad tokens and malformed bodies. | Import `http://localhost:8080/openapi.json` |
+| **Bruno or Insomnia** | Save and replay API requests, including bad tokens and malformed bodies. | Import `http://localhost:8080/openapi.json` |
 | **Dozzle** | Browser-based live container logs. | Mount the Docker socket |
 | **cAdvisor / Portainer** | See container resource use while the lab is under load. | Optional Docker add-ons |
 
